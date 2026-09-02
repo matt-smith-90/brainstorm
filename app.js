@@ -4,7 +4,7 @@
   // ---------------------------------------------------------------------
   // State
   // ---------------------------------------------------------------------
-  let state = { nodes: {}, rootChildren: [] };
+  let state = { nodes: {}, rootChildren: [], todoMode: false };
   let zoomStack = [];
   let visibleOrder = [];
   let rowCounter = 0;
@@ -28,7 +28,6 @@
   // ---------------------------------------------------------------------
   const outlineEl = document.getElementById('outline');
   const breadcrumbEl = document.getElementById('breadcrumb');
-  const fileNameEl = document.getElementById('fileNameEl');
   const countEl = document.getElementById('countEl');
   const fileInput = document.getElementById('fileInput');
   const helpDialog = document.getElementById('helpDialog');
@@ -39,7 +38,7 @@
   function createNode(text) {
     idCounter++;
     const id = 'n' + Date.now().toString(36) + idCounter.toString(36) + Math.random().toString(36).slice(2, 5);
-    state.nodes[id] = { id, text: text || '', children: [], collapsed: false };
+    state.nodes[id] = { id, text: text || '', children: [], collapsed: false, checked: false };
     return id;
   }
 
@@ -89,12 +88,13 @@
   // Undo / redo
   // ---------------------------------------------------------------------
   function cloneState() {
-    return JSON.stringify({ nodes: state.nodes, rootChildren: state.rootChildren, zoomStack });
+    return JSON.stringify({ nodes: state.nodes, rootChildren: state.rootChildren, todoMode: state.todoMode, zoomStack });
   }
   function restoreState(json) {
     const obj = JSON.parse(json);
     state.nodes = obj.nodes;
     state.rootChildren = obj.rootChildren;
+    state.todoMode = !!obj.todoMode;
     zoomStack = obj.zoomStack || [];
   }
   function snapshot() {
@@ -282,6 +282,27 @@
     render();
   }
 
+  // Checking or unchecking an item applies the same state to everything under it.
+  function setCheckedRecursive(id, value) {
+    state.nodes[id].checked = value;
+    state.nodes[id].children.forEach((cid) => setCheckedRecursive(cid, value));
+  }
+
+  function toggleChecked(id) {
+    snapshot();
+    const value = !state.nodes[id].checked;
+    setCheckedRecursive(id, value);
+    markDirty();
+    render();
+  }
+
+  function toggleTodoMode() {
+    snapshot();
+    state.todoMode = !state.todoMode;
+    markDirty();
+    render();
+  }
+
   function deleteNode(id) {
     const node = state.nodes[id];
     if (node.children.length > 0 && !confirm('Delete this item and everything under it?')) return;
@@ -372,7 +393,7 @@
     bullet.addEventListener('click', () => zoomInto(id));
 
     const cell = document.createElement('div');
-    cell.className = 'cell';
+    cell.className = 'cell' + (state.todoMode && node.checked ? ' done' : '');
     cell.contentEditable = 'true';
     cell.spellcheck = false;
     cell.dataset.id = id;
@@ -387,7 +408,18 @@
     del.textContent = '×';
     del.addEventListener('click', () => deleteNode(id));
 
-    row.append(dragHandle, twisty, bullet, cell, del);
+    if (state.todoMode) {
+      const checkbox = document.createElement('button');
+      checkbox.type = 'button';
+      checkbox.tabIndex = -1;
+      checkbox.className = 'todo-check' + (node.checked ? ' checked' : '');
+      checkbox.title = node.checked ? 'Mark as not done' : 'Mark as done';
+      checkbox.textContent = node.checked ? '✓' : '';
+      checkbox.addEventListener('click', () => toggleChecked(id));
+      row.append(dragHandle, twisty, bullet, checkbox, cell, del);
+    } else {
+      row.append(dragHandle, twisty, bullet, cell, del);
+    }
     wrap.appendChild(row);
 
     if (node.children.length && !node.collapsed) {
@@ -447,9 +479,12 @@
   }
 
   function updateStatus() {
-    fileNameEl.textContent = currentFileName + (dirty ? ' •' : '');
     const n = Object.keys(state.nodes).length;
     countEl.textContent = n + (n === 1 ? ' item' : ' items');
+    todoModeBtn.classList.toggle('active', !!state.todoMode);
+    todoModeBtn.title = state.todoMode
+      ? 'Turn off to-do checkboxes for this note'
+      : 'Turn on to-do checkboxes for this note';
   }
 
   // ---------------------------------------------------------------------
@@ -462,6 +497,7 @@
         localStorage.setItem('brainstorm-autosave', JSON.stringify({
           nodes: state.nodes,
           rootChildren: state.rootChildren,
+          todoMode: state.todoMode,
           fileName: currentFileName,
         }));
       } catch (e) { /* storage unavailable — ignore */ }
@@ -471,18 +507,22 @@
   // ---------------------------------------------------------------------
   // Autosave to the open file (Chrome/Edge, once a file handle exists)
   // ---------------------------------------------------------------------
+  async function writeStateToHandle(handle) {
+    const dataStr = JSON.stringify(
+      { app: 'brainstorm-outline', version: 1, rootChildren: state.rootChildren, nodes: state.nodes, todoMode: state.todoMode },
+      null, 2
+    );
+    const writable = await handle.createWritable();
+    await writable.write(dataStr);
+    await writable.close();
+  }
+
   function scheduleFileAutosave() {
     if (!autosaveToFileEnabled || !currentFileHandle) return;
     clearTimeout(fileAutosaveTimer);
     fileAutosaveTimer = setTimeout(async () => {
       try {
-        const dataStr = JSON.stringify(
-          { app: 'brainstorm-outline', version: 1, rootChildren: state.rootChildren, nodes: state.nodes },
-          null, 2
-        );
-        const writable = await currentFileHandle.createWritable();
-        await writable.write(dataStr);
-        await writable.close();
+        await writeStateToHandle(currentFileHandle);
         dirty = false;
         updateStatus();
       } catch (e) { /* permission revoked or handle stale — next manual Save will recover */ }
@@ -493,7 +533,7 @@
   // Document lifecycle
   // ---------------------------------------------------------------------
   function freshDocument() {
-    state = { nodes: {}, rootChildren: [] };
+    state = { nodes: {}, rootChildren: [], todoMode: false };
     zoomStack = [];
     undoStack = [];
     redoStack = [];
@@ -510,7 +550,7 @@
       if (!obj || typeof obj.nodes !== 'object' || !Array.isArray(obj.rootChildren)) {
         throw new Error('Unexpected shape');
       }
-      state = { nodes: obj.nodes, rootChildren: obj.rootChildren };
+      state = { nodes: obj.nodes, rootChildren: obj.rootChildren, todoMode: !!obj.todoMode };
       zoomStack = [];
       undoStack = [];
       redoStack = [];
@@ -528,7 +568,7 @@
   // ---------------------------------------------------------------------
   async function doSave(saveAsNew) {
     const dataStr = JSON.stringify(
-      { app: 'brainstorm-outline', version: 1, rootChildren: state.rootChildren, nodes: state.nodes },
+      { app: 'brainstorm-outline', version: 1, rootChildren: state.rootChildren, nodes: state.nodes, todoMode: state.todoMode },
       null, 2
     );
 
@@ -642,6 +682,9 @@
   });
   document.getElementById('expandAllBtn').addEventListener('click', () => setAllCollapsed(false));
   document.getElementById('collapseAllBtn').addEventListener('click', () => setAllCollapsed(true));
+  const todoModeBtn = document.getElementById('todoModeBtn');
+  todoModeBtn.addEventListener('click', toggleTodoMode);
+
   const fullscreenBtn = document.getElementById('fullscreenBtn');
   fullscreenBtn.addEventListener('click', () => {
     if (!document.fullscreenElement) {
@@ -844,9 +887,10 @@
       try {
         const obj = JSON.parse(auto);
         if (obj.nodes && Object.keys(obj.nodes).length) {
-          state = { nodes: obj.nodes, rootChildren: obj.rootChildren };
+          state = { nodes: obj.nodes, rootChildren: obj.rootChildren, todoMode: !!obj.todoMode };
           zoomStack = [];
           currentFileName = obj.fileName || 'Untitled.json';
+          currentFileHandle = null;
           dirty = false;
           render();
           return;

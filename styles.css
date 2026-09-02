@@ -38,7 +38,7 @@
 
 * { box-sizing: border-box; }
 
-body, .app-shell, .toolbar, .breadcrumb, .btn, .node-row, .cell, .help-dialog, .children {
+body, .app-shell, .toolbar, .title-bar, .breadcrumb, .btn, .node-row, .cell, .help-dialog, .children {
   transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
@@ -121,22 +121,27 @@ body {
 .btn-accent:hover { background: #A5301F; border-color: #A5301F; color: #fff; }
 
 .status-group { gap: 12px; }
-.file-name { font-family: var(--mono); font-size: 12.5px; color: var(--muted); }
 .item-count { font-family: var(--mono); font-size: 12.5px; color: var(--muted); }
 
-/* ---------- Breadcrumb ---------- */
+/* ---------- Title bar: zoom breadcrumb ---------- */
+.title-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 28px;
+  border-bottom: 1px solid var(--line);
+  background: var(--paper);
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+}
+
 .breadcrumb {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 4px;
-  padding: 10px 24px;
   font-family: var(--mono);
   font-size: 12.5px;
-  border-bottom: 1px solid var(--line);
-  background: var(--paper);
-  flex: 0 0 auto;
-  width: 100%;
 }
 .crumb {
   background: none;
@@ -160,7 +165,7 @@ body {
 .crumb.current::before { background: var(--accent); }
 .crumb-sep { color: var(--line); }
 
-/* ---------- Outline (fills remaining space, scrolls, content column centered) ---------- */
+/* ---------- Outline (fills remaining space, scrolls) ---------- */
 .outline {
   flex: 1 1 auto;
   min-height: 0;
@@ -245,6 +250,27 @@ body {
 .bullet.has-children::after { background: var(--accent); }
 .bullet:hover::after { transform: scale(1.5); background: var(--accent); }
 
+.todo-check {
+  flex: 0 0 auto;
+  width: 17px; height: 17px;
+  margin: 4px 5px 0 0;
+  border: 1.5px solid var(--link-dim);
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  line-height: 1;
+  color: #fff;
+}
+.todo-check:hover { border-color: var(--accent); }
+.todo-check.checked { background: var(--accent); border-color: var(--accent); }
+
+.cell.done { color: var(--muted); text-decoration: line-through; text-decoration-color: var(--muted); }
+
 .cell {
   flex: 1 1 auto;
   min-width: 0;
@@ -295,7 +321,7 @@ body {
   border: 1px solid var(--line);
   border-radius: 10px;
   padding: 22px 26px;
-  max-width: 480px;
+  max-width: 500px;
   font-family: var(--sans);
   color: var(--ink);
   background: var(--paper);
@@ -320,6 +346,7 @@ kbd {
 @media (max-width: 640px) {
   .toolbar { padding: 8px 10px; }
   .status-group { width: 100%; justify-content: space-between; order: 10; }
+  .title-bar { padding: 10px 14px; }
   .outline { padding: 14px 12px 40vh; }
   .children { margin-left: 12px; padding-left: 12px; }
 }

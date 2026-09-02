@@ -43,10 +43,15 @@
       <button id="collapseAllBtn" class="btn" title="Collapse every item">Collapse all</button>
     </div>
 
+    <div class="toolbar-divider"></div>
+
+    <div class="toolbar-group">
+      <button id="todoModeBtn" class="btn icon-btn" title="Turn on to-do checkboxes for this note">☑</button>
+    </div>
+
     <div class="toolbar-spacer"></div>
 
     <div class="toolbar-group status-group">
-      <span id="fileNameEl" class="file-name">Untitled.json</span>
       <span id="countEl" class="item-count">1 item</span>
       <button id="fullscreenBtn" class="btn icon-btn" title="Toggle fullscreen">⛶</button>
       <button id="themeBtn" class="btn icon-btn" title="Switch to light theme">☀</button>
@@ -54,7 +59,9 @@
     </div>
   </header>
 
-  <nav id="breadcrumb" class="breadcrumb"></nav>
+  <div class="title-bar">
+    <nav id="breadcrumb" class="breadcrumb"></nav>
+  </div>
 
   <main id="outline" class="outline" tabindex="-1"></main>
 </div>
@@ -76,6 +83,7 @@
     <tr><td><kbd>Ctrl</kbd>+<kbd>S</kbd></td><td>Save to file</td></tr>
     <tr><td><kbd>Ctrl</kbd>+<kbd>O</kbd></td><td>Open a file</td></tr>
     <tr><td>⟳ button</td><td>Toggle autosave — writes back to your open file a moment after each change (Chrome/Edge; other browsers keep a local backup instead)</td></tr>
+    <tr><td>☑ button</td><td>Turn to-do checkboxes on or off for this note — checking an item crosses it out and checks all of its sub-items too</td></tr>
   </table>
   <button id="closeHelpBtn" class="btn btn-accent">Got it</button>
 </dialog>
